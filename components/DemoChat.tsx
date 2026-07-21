@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import React from 'react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -18,7 +19,7 @@ const STARTERS = [
 export default function DemoChat() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Hi! I'\'m Infinity AI. Ask me anything about what\'\'s on your screen, or try one of the prompts below.', id: '0' }
+    { role: 'assistant', content: "Hi! I'm Infinity AI. Ask me anything about what's on your screen, or try one of the prompts below.", id: '0' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -99,7 +100,6 @@ export default function DemoChat() {
 
   return (
     <React.Fragment>
-      {/* Floating button */}
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
@@ -126,7 +126,6 @@ export default function DemoChat() {
         {open ? 'X' : 'AI'}
       </button>
 
-      {/* Chat panel */}
       {open && (
         <div
           style={{
@@ -146,14 +145,12 @@ export default function DemoChat() {
             overflow: 'hidden',
           }}
         >
-          {/* Header */}
           <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(232,237,242,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22974F' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22974F', display: 'inline-block' }} />
             <span style={{ fontWeight: 700, fontSize: 14, color: '#E8EDF2' }}>Infinity AI Demo</span>
             <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(232,237,242,0.35)' }}>Powered by Groq</span>
           </div>
 
-          {/* Messages */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {messages.map((m) => (
               <div key={m.id} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -173,7 +170,6 @@ export default function DemoChat() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Starters */}
           {messages.length === 1 && (
             <div style={{ padding: '0 16px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {STARTERS.map((s) => (
@@ -184,7 +180,6 @@ export default function DemoChat() {
             </div>
           )}
 
-          {/* Input */}
           <div style={{ padding: '10px 16px 14px', borderTop: '1px solid rgba(232,237,242,0.08)', display: 'flex', gap: 8 }}>
             <input
               value={input}
