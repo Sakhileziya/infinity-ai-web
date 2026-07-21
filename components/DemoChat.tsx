@@ -8,167 +8,201 @@ interface Message {
   id: string
 }
 
-const STARTE_PROMPTS = [
-  'Summarise a web page for me',
-  'Research my competitors in Africa',
-  'Draft a client proposal email',
-  'What is POPIA and how does it affect me?',
+const STARTERS = [
+  'Summarise this page',
+  'Draft a reply email',
+  'Research my competitors',
+  'Explain this in simple terms',
 ]
 
-function uid() {
-  return Math.random().toString(36).slice(2, 9)
-}
-
 export default function DemoChat() {
+  const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: uid(),
-      role: 'assistant',
-      content:
-        "Sawubona! I'm Infinity AI &#8212; your Africa-first browser companion. Ask me anything, or try one of the prompts below.",
-    },
+    { role: 'assistant', content: 'Hi! I'\'m Infinity AI. Ask me anything about what\'\'s on your screen, or try one of the prompts below.', id: '0' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [open, setOpen] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 80)
-  }, [open])
+    if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, open])
 
   const send = useCallback(async (text: string) => {
     if (!text.trim() || loading) return
-    const userMsg: Message = { id: uid(), role: 'user', content: text }
-    const assistantMsg: Message = { id: uid(), role: 'assistant', content: '' }
+    const userMsg: Message = { role: 'user', content: text.trim(), id: Date.now().toString() }
+    const assistantMsg: Message = { role: 'assistant', content: '', id: (Date.now() + 1).toString() }
+
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setInput('')
     setLoading(true)
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
+
+    abortRef.current = new AbortController()
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
-        }),
-        signal: ctrl.signal,
+        body: JSON.stringify({ messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })) }),
+        signal: abortRef.current.signal,
       })
+
       if (!res.ok) throw new Error('API error')
-      const reader = res.body!.getReader()
+
+      const reader = res.body?.getReader()
       const decoder = new TextDecoder()
-      let buffer = ''
+
+      if (!reader) throw new Error('No stream')
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
         for (const line of lines) {
-          if (!line.startsWith('data:')) continue
-          const data = line.slice(5).trim()
-          if (data === '[DONE]') break
-          try {
-            const { text } = JSON.parse(data)
-            if (text) {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsg.id ? { ...m, content: m.content + text } : m
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim()
+            if (data === '[DONE]') break
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta?.content
+              if (delta) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id ? { ...m, content: m.content + delta } : m
+                  )
                 )
-              )
+              }
+            } catch {
+              /* skip malformed chunks */
             }
-          } catch {}
+          }
         }
       }
     } catch (err: unknown) {
       if ((err as Error).name !== 'AbortError') {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMsg.id ? { ...m, content: 'Something went wrong. Please try again.' } : m
+            m.id === assistantMsg.id
+              ? { ...m, content: 'Something went wrong. Please try again.' }
+              : m
           )
         )
       }
     } finally {
       setLoading(false)
     }
-  }, [loading, messages])
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    send(input)
-  }
+  }, [messages, loading])
 
   return (
-    <>
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="Open Infinity AI demo"
-          style={{
-            position: 'fixed', bottom: 28, right: 28, zIndex: 200,
-            width: 56, height: 56, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1B7A4A, #22974F)',
-            border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, boxShadow: '0 4px 24px rgba(27,122,74,0.5)', color: 'white',
-          }}
-        >
-          ∞</button>
-      )}
+    <React.Fragment>
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          position: 'fixed',
+          bottom: 28,
+          right: 28,
+          width: 56,
+          height: 56,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #1B7A4A, #22974F)',
+          border: 'none',
+          color: 'white',
+          fontSize: 22,
+          cursor: 'pointer',
+          boxShadow: '0 4px 24px rgba(27,122,74,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          transition: 'transform 0.2s',
+        }}
+        aria-label="Open chat"
+      >
+        {open ? 'X' : 'AI'}
+      </button>
+
+      {/* Chat panel */}
       {open && (
         <div
           style={{
-            position: 'fixed', bottom: 24, right: 24, width: 380,
-            maxWidth: 'calc(100vw - 32px)', height: 540,
-            maxHeight: 'calc(100vh - 48px)', zIndex: 200,
+            position: 'fixed',
+            bottom: 96,
+            right: 28,
+            width: 360,
+            maxHeight: 520,
             borderRadius: 20,
             background: 'rgba(15,25,35,0.97)',
-            backdropFilter: 'blur(24px)',
             border: '1px solid rgba(232,237,242,0.1)',
-            boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
-            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            backdropFilter: 'blur(20px)',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 9998,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(232,237,242,0.07)', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #1B7A4A, #22974F)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'white', fontWeight: 800 }}>∞/</div>
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#E8EDF2' }}>Infinity AI</p>
-                <span style={{ fontSize: 11, color: 'rgba(232,237,242,0.4)' }}>Powered by Groq · llama-3.3-70b</span>
-              </div>
-            </div>
-            <button onClick={() => { abortRef.current?.abort(); setOpen(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,237,242,0.4)', fontSize: 18 }}>=</button>
+          {/* Header */}
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(232,237,242,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22974F' }} />
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#E8EDF2' }}>Infinity AI Demo</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(232,237,242,0.35)' }}>Powered by Groq</span>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {messages.map((msg) => (
-              <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '82%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: msg.role === 'user' ? 'linear-gradient(135deg, #1B7A4A, #22974F)' : 'rgba(232,237,242,0.06)', border: msg.role === 'assistant' ? '1px solid rgba(232,237,242,0.07)' : 'none', fontSize: 13, lineHeight: 1.6, color: msg.role === 'user' ? 'white' : 'rgba(232,237,242,0.85)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                  {msg.content || ';…&}
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {messages.map((m) => (
+              <div key={m.id} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{
+                  maxWidth: '82%',
+                  padding: '8px 12px',
+                  borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  background: m.role === 'user' ? 'linear-gradient(135deg, #1B7A4A, #22974F)' : 'rgba(232,237,242,0.07)',
+                  color: '#E8EDF2',
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                }}>
+                  {m.content || (loading && m.role === 'assistant' ? '...' : '')}
                 </div>
               </div>
             ))}
             <div ref={bottomRef} />
           </div>
+
+          {/* Starters */}
           {messages.length === 1 && (
-            <div style={{ padding: '0 14px 12px', display: 'flex', flexWrap: 'wrap', gap: 6, flexShrink: 0 }}>
-              {STARTE_PROMPTS.map((p) => (
-                <button key={p} onClick={() => send(p)} style={{ fontSize: 11, fontWeight: 500, color: 'rgba(232,237,242,0.6)', background: 'rgba(232,237,242,0.05)', border: '1px solid rgba(232,237,242,0.1)', borderRadius: 100, padding: '4px 10px', cursor: 'pointer' }}>{p}</button>
+            <div style={{ padding: '0 16px 8px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {STARTERS.map((s) => (
+                <button key={s} onClick={() => send(s)} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 20, border: '1px solid rgba(27,122,74,0.4)', background: 'rgba(27,122,74,0.1)', color: '#5CDB95', cursor: 'pointer' }}>
+                  {s}
+                </button>
               ))}
             </div>
           )}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, padding: '10px 14px 14px', borderTop: '1px solid rgba(232,237,242,0.07)', flexShrink: 0 }}>
-            <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask Infinity AI anything..." disabled={loading} style={{ flex: 1, background: 'rgba(232,237,242,0.06)', border: '1px solid rgba(232,237,242,0.1)', borderRadius: 10, padding: '9px 12px', fontSize: 13, color: '#E8EDF2', outline: 'none' }} />
-            <button type="submit" disabled={loading || !input.trim()} style={{ width: 36, height: 36, borderRadius: 10, background: loading || !input.trim() ? 'rgba(232,237,242,0.06)' : 'linear-gradient(135deg, #1B7A4A, #22974F)', border: 'none', cursor: loading || !input.trim() ? 'not-allowed' : 'pointer', color: loading || !input.trim() ? 'rgba(232,237,242,0.3)' : 'white', fontSize: 14, flexShrink: 0 }}>{loading ? '…' : '↑'}</button>
-          </form>
+
+          {/* Input */}
+          <div style={{ padding: '10px 16px 14px', borderTop: '1px solid rgba(232,237,242,0.08)', display: 'flex', gap: 8 }}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}
+              placeholder="Ask anything..."
+              style={{ flex: 1, background: 'rgba(232,237,242,0.06)', border: '1px solid rgba(232,237,242,0.1)', borderRadius: 10, padding: '8px 12px', color: '#E8EDF2', fontSize: 13, outline: 'none' }}
+            />
+            <button
+              onClick={() => send(input)}
+              disabled={loading || !input.trim()}
+              style={{ padding: '8px 14px', borderRadius: 10, background: loading ? 'rgba(27,122,74,0.3)' : '#1B7A4A', border: 'none', color: 'white', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14 }}
+            >
+              {loading ? '...' : 'Send'}
+            </button>
+          </div>
         </div>
       )}
-    </>
+    </React.Fragment>
   )
 }
