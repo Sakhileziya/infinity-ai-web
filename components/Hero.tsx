@@ -69,13 +69,13 @@ export default function Hero() {
 
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px 5px 6px', borderRadius: 100, border: '1px solid rgba(27,122,74,0.4)', background: 'rgba(27,122,74,0.1)', marginBottom: 28, fontSize: 12, fontWeight: 600, color: '#5CDB95', letterSpacing: '0.02em', position: 'relative', zIndex: 1 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'rgba(27,122,74,0.3)', fontSize: 10 }}>🌍</span>
-        Africa's First Local AI Browser Companion - Free Forever
+        Africa&apos;s First Local AI Browser Companion - Free Forever
       </div>
 
       <h1 className="heading-xl" style={{ fontSize: 'clamp(40px, 7vw, 80px)', color: '#E8EDF2', maxWidth: 820, marginBottom: 20, position: 'relative', zIndex: 1 }}>
         Think smarter.
         <br />
-        <span className="text-gradient-green"">Work unlimited.</span>
+        <span className="text-gradient-green">Work unlimited.</span>
       </h1>
 
       <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: 'rgba(232,237,242,0.6)', maxWidth: 560, marginBottom: 40, lineHeight: 1.65, position: 'relative', zIndex: 1 }}>
